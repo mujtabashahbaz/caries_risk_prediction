@@ -1,58 +1,23 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+import random
 
-# Generate synthetic data
-def generate_synthetic_data(n_samples=1000):
-    np.random.seed(42)
-    data = pd.DataFrame({
-        'age': np.random.randint(5, 80, n_samples),
-        'sugar_intake': np.random.randint(0, 10, n_samples),
-        'brushing_frequency': np.random.randint(0, 3, n_samples),
-        'flossing_frequency': np.random.randint(0, 2, n_samples),
-        'fluoride_exposure': np.random.randint(0, 2, n_samples),
-        'past_caries': np.random.randint(0, 5, n_samples),
-        'salivary_flow_rate': np.random.uniform(0.1, 2.0, n_samples),
-        'salivary_ph': np.random.uniform(5.5, 7.5, n_samples)
-    })
+def calculate_risk_score(age, sugar_intake, brushing_frequency, flossing_frequency, 
+                         fluoride_exposure, past_caries, salivary_flow_rate, salivary_ph):
+    # Simple risk calculation based on weighted factors
+    risk_score = 0
+    risk_score += sugar_intake * 0.2
+    risk_score += (3 - brushing_frequency) * 0.15
+    risk_score += (2 - flossing_frequency) * 0.1
+    risk_score += (1 - fluoride_exposure) * 0.1
+    risk_score += past_caries * 0.2
+    risk_score += (2 - salivary_flow_rate) * 0.15
+    risk_score += (7.5 - salivary_ph) * 0.1
     
-    # Generate target variable (caries risk: 0 - low, 1 - high)
-    data['caries_risk'] = (
-        (data['sugar_intake'] > 5) &
-        (data['brushing_frequency'] < 2) &
-        (data['past_caries'] > 2) &
-        (data['salivary_flow_rate'] < 0.7) &
-        (data['salivary_ph'] < 6.5)
-    ).astype(int)
-    
-    return data
+    # Normalize score to be between 0 and 1
+    return min(max(risk_score / 10, 0), 1)
 
-# Train the model
-def train_model(data):
-    X = data.drop('caries_risk', axis=1)
-    y = data['caries_risk']
-    
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-    model.fit(X_train_scaled, y_train)
-    
-    return model, scaler
-
-# Streamlit app
 def main():
     st.title("AIDentify's Caries Risk Prediction Model")
-    
-    # Generate synthetic data and train the model
-    data = generate_synthetic_data()
-    model, scaler = train_model(data)
     
     st.write("Enter patient information:")
     
@@ -66,18 +31,25 @@ def main():
     salivary_ph = st.slider("Salivary pH", 5.5, 7.5, 6.5, 0.1)
     
     if st.button("Predict Caries Risk"):
-        input_data = np.array([[age, sugar_intake, brushing_frequency, flossing_frequency,
-                                int(fluoride_exposure), past_caries, salivary_flow_rate, salivary_ph]])
-        input_data_scaled = scaler.transform(input_data)
-        prediction = model.predict_proba(input_data_scaled)[0]
+        risk_score = calculate_risk_score(
+            age, sugar_intake, brushing_frequency, flossing_frequency,
+            int(fluoride_exposure), past_caries, salivary_flow_rate, salivary_ph
+        )
         
-        st.write(f"Probability of Low Caries Risk: {prediction[0]:.2f}")
-        st.write(f"Probability of High Caries Risk: {prediction[1]:.2f}")
+        # Add a small random factor to make predictions less deterministic
+        risk_score = min(max(risk_score + random.uniform(-0.05, 0.05), 0), 1)
         
-        if prediction[1] > 0.5:
+        st.write(f"Caries Risk Score: {risk_score:.2f}")
+        
+        if risk_score > 0.6:
             st.warning("High risk of caries. Recommend preventive measures.")
+        elif risk_score > 0.3:
+            st.info("Moderate risk of caries. Consider additional preventive measures.")
         else:
             st.success("Low risk of caries. Maintain good oral hygiene.")
+        
+        st.write("Note: This is a simplified model for demonstration purposes only. "
+                 "Consult with a dental professional for accurate risk assessment.")
 
 if __name__ == "__main__":
     main()
