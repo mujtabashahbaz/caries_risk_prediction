@@ -7,45 +7,57 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 import os
 
-# Generate synthetic data
-def generate_synthetic_data(n_samples=10000):
-    np.random.seed(42)
-    data = pd.DataFrame({
-        'age': np.random.randint(5, 80, n_samples),
-        'sugar_intake': np.random.randint(0, 10, n_samples),
-        'brushing_frequency': np.random.randint(0, 3, n_samples),
-        'flossing_frequency': np.random.randint(0, 2, n_samples),
-        'fluoride_exposure': np.random.randint(0, 2, n_samples),
-        'past_caries': np.random.randint(0, 5, n_samples),
-        'salivary_flow_rate': np.random.uniform(0.1, 2.0, n_samples),
-        'salivary_ph': np.random.uniform(5.5, 7.5, n_samples)
-    })
-    
-    # Generate target variable (caries risk: 0 - low, 1 - moderate, 2 - high)
-    data['caries_risk'] = np.where(
-        (data['brushing_frequency'] == 0) | (data['sugar_intake'] >= 8) | (data['past_caries'] >= 4), 2,
-        np.where(
-            (data['brushing_frequency'] <= 1) | (data['sugar_intake'] >= 6) | (data['past_caries'] >= 2) |
-            (data['salivary_flow_rate'] < 0.7) | (data['salivary_ph'] < 6.0), 1, 0
-        )
-    )
-    
-    return data
+# [Previous functions remain unchanged]
 
-# Train the model
-def train_model(data):
-    X = data.drop('caries_risk', axis=1)
-    y = data['caries_risk']
+def explain_results(risk_level, prediction, input_data):
+    st.subheader("Explanation of Results")
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    risk_levels = ["Low", "Moderate", "High"]
+    st.write(f"Your caries risk level is: **{risk_levels[risk_level]}**")
     
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
+    st.write(f"Probability breakdown:")
+    for i, level in enumerate(risk_levels):
+        st.write(f"- {level} risk: {prediction[i]:.2f}")
     
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
-    model.fit(X_train_scaled, y_train)
+    st.write("\nKey factors influencing your risk level:")
     
-    return model, scaler
+    if input_data[0][2] < 2:  # Brushing frequency
+        st.write("- Your brushing frequency is lower than recommended. Aim for brushing at least twice a day.")
+    
+    if input_data[0][1] > 5:  # Sugar intake
+        st.write("- Your sugar intake is relatively high. Consider reducing sugary foods and drinks.")
+    
+    if input_data[0][3] == 0:  # Flossing frequency
+        st.write("- You're not flossing regularly. Daily flossing can significantly reduce your caries risk.")
+    
+    if not input_data[0][4]:  # Fluoride exposure
+        st.write("- You're not getting regular fluoride exposure. Consider using fluoride toothpaste or other fluoride treatments.")
+    
+    if input_data[0][5] > 2:  # Past caries
+        st.write("- You have a history of multiple caries. This increases your risk for future caries.")
+    
+    if input_data[0][6] < 0.7:  # Salivary flow rate
+        st.write("- Your salivary flow rate is lower than average. This can increase your caries risk.")
+    
+    if input_data[0][7] < 6.5:  # Salivary pH
+        st.write("- Your salivary pH is on the acidic side. This can increase your risk of tooth demineralization.")
+    
+    st.write("\nRecommendations:")
+    if risk_level == 0:
+        st.write("- Maintain your good oral hygiene habits.")
+        st.write("- Continue regular dental check-ups.")
+    elif risk_level == 1:
+        st.write("- Improve your brushing and flossing routine.")
+        st.write("- Consider using fluoride mouthwash.")
+        st.write("- Reduce sugar intake if it's high.")
+        st.write("- Schedule a dental check-up in the near future.")
+    else:
+        st.write("- Significantly improve your oral hygiene routine.")
+        st.write("- Use a fluoride toothpaste and consider additional fluoride treatments.")
+        st.write("- Drastically reduce sugar intake.")
+        st.write("- Schedule a dental appointment as soon as possible.")
+    
+    st.write("\nRemember: This is a simplified model for educational purposes. Always consult with a dental professional for personalized advice and treatment.")
 
 # Streamlit app
 def main():
@@ -78,19 +90,15 @@ def main():
         input_data_scaled = scaler.transform(input_data)
         prediction = model.predict_proba(input_data_scaled)[0]
         
-        st.write(f"Probability of Low Caries Risk: {prediction[0]:.2f}")
-        st.write(f"Probability of Moderate Caries Risk: {prediction[1]:.2f}")
-        st.write(f"Probability of High Caries Risk: {prediction[2]:.2f}")
-        
         risk_level = np.argmax(prediction)
         if risk_level == 0:
-            st.success("Low risk of caries. Maintain good oral hygiene.")
+            st.success("Low risk of caries.")
         elif risk_level == 1:
-            st.warning("Moderate risk of caries. Consider additional preventive measures.")
+            st.warning("Moderate risk of caries.")
         else:
-            st.error("High risk of caries. Immediate preventive measures recommended.")
+            st.error("High risk of caries.")
         
-        st.write("Note: This model is for demonstration purposes. Always consult with a dental professional for accurate risk assessment.")
+        explain_results(risk_level, prediction, input_data)
 
 if __name__ == "__main__":
     main()
